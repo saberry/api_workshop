@@ -1,0 +1,123 @@
+---
+title: "API Examples"
+format: html
+---
+
+The Application Programming Interface is one of the greatest things that you can use for acquiring data. 
+
+We are going to be using just a few packages to make the API calls and get our data together:
+
+```{r}
+library(httr2)
+library(jsonlite)
+```
+
+
+## Free and Unkeyed APIs
+
+Let's start with an API from <a href='https://open-meteo.com/'>Open-Meteo</a>. Not only is it free and unkeyed, but it has very little in the way of **rate limits**. It is also a good example of building up the link.
+
+```{r}
+link <- "https://archive-api.open-meteo.com/v1/archive?latitude=41.676388&longitude=-86.250275&start_date=2012-01-01&end_date=2023-10-31&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,snowfall_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FNew_York"
+
+weather_request <- request(link) %>%
+  req_perform()
+```
+
+Now that we have made our request, we need to do just a little parsing to pull out data in.
+
+```{r}
+weather_content <- resp_body_string(weather_request)
+
+weather_data <- fromJSON(weather_content)
+```
+
+Naturally, we are left with a list; parsing it won't be any trouble.
+
+```{r}
+sb_daily_weather <- as.data.frame(weather_data$daily)
+
+sb_daily_weather$time <- lubridate::ymd(sb_daily_weather$time)
+```
+
+This data will lend itself nicely to a time-based viz:
+
+```{r}
+library(plotly)
+
+plot_ly(sb_daily_weather, type = 'scatter', mode = 'lines') %>%
+  add_trace(x = ~time, y = ~temperature_2m_max, name = 'max_temp') %>%
+  add_trace(x = ~time, y = ~temperature_2m_min, name = 'min_temp') %>% 
+  layout(xaxis = list(rangeslider = list(visible = TRUE)))
+```
+
+Just in the event that you were curious about snowfall:
+
+```{r}
+plot_ly(sb_daily_weather, type = 'scatter', mode = 'line') %>%
+  add_trace(x = ~time, y = ~snowfall_sum, name = 'Snowfall') %>% 
+  layout(xaxis = list(rangeslider = list(visible = TRUE)))
+```
+
+## Keyed APIs
+
+Many APIs want you to have a **key** -- essentially a identifier -- so that they can place limits on the amount of requests that you make. 
+
+A lot of places will make you sign up for an account and create an application. Let's see what we can do with <a href='https://developer.kroger.com/'>Kroger</a>. 
+
+After you create an account, you can get a key and a secret:
+
+```{r}
+kroger_k <- "productlocations-76042e6121dbd0d61b79e286ded0a1e14953080747806617438"
+
+kroger_s <- "zkTE4-wtxOubnTuKcbMZCEP_jR3CglIPLcWGP2hO"
+```
+
+The Kroger API sits right in the middle of the easy/complicated continuum. 
+
+```{r}
+auth_request <- request("https://api.kroger.com/v1/connect/oauth2/token") %>%
+  req_method("POST") %>%
+  req_headers("Content-Type" = "application/x-www-form-urlencoded", 
+              scope = "product.compact") %>%
+  req_body_form(grant_type = "client_credentials", 
+                scope = "product.compact") %>%
+  req_auth_basic(username = kroger_k, password = kroger_s) %>%
+  req_perform()
+
+access_token <- resp_body_json(auth_request)$access_token
+```
+
+```{r}
+location_link <- "https://api.kroger.com/v1/locations?filter.zipCode.near=46545"
+
+location_request <- request(location_link) %>%
+  req_headers("Cache-Control" = "no-cache", 
+              "Content-Type" = "application/json; charset=utf-8") %>%
+  req_auth_bearer_token(access_token) %>%
+  req_perform()
+
+close_locations <- resp_body_json(location_request)
+
+location_id <- close_locations$data[[1]]$locationId
+```
+
+
+
+```{r}
+product_link <- glue::glue(
+  "https://api.kroger.com/v1/products?filter.term=pumpkin%20cookies&filter.locationId={location_id}"
+)
+
+product_request <- request(product_link) %>%
+  req_headers("Cache-Control" = "no-cache", 
+              "Content-Type" = "application/json; charset=utf-8", 
+              scope = "product.compact") %>%
+  req_auth_bearer_token(access_token) %>% #req_dry_run(quiet = FALSE, redact_headers = FALSE)
+  req_perform(verbosity = 3)
+
+product_data <- resp_body_json(product_request)
+```
+
+
+## Private APIs
