@@ -15,10 +15,32 @@ library(jsonlite)
 
 ## Free and Unkeyed APIs
 
+Let's start by finding some coordinates for South Bend:
+
+```{r}
+town <- "South%20Bend,IN"
+
+link <- glue::glue(
+  "https://geocode.maps.co/search?q={town}"
+)
+
+lat_lon_req <- request(link) %>% 
+  req_perform()
+
+lat_lon_return <- resp_body_json(lat_lon_req)
+
+lat <- lat_lon_return[[1]]$lat
+
+lon <- lat_lon_return[[1]]$lon
+```
+
+
 Let's start with an API from <a href='https://open-meteo.com/'>Open-Meteo</a>. Not only is it free and unkeyed, but it has very little in the way of **rate limits**. It is also a good example of building up the link.
 
 ```{r}
-link <- "https://archive-api.open-meteo.com/v1/archive?latitude=41.676388&longitude=-86.250275&start_date=2012-01-01&end_date=2023-10-31&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,snowfall_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FNew_York"
+link <- glue::glue(
+  "https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date=2012-01-01&end_date=2023-10-31&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,snowfall_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FNew_York"
+)
 
 weather_request <- request(link) %>%
   req_perform()
