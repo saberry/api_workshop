@@ -65,12 +65,22 @@ Many APIs want you to have a **key** -- essentially a identifier -- so that they
 
 A lot of places will make you sign up for an account and create an application. Let's see what we can do with <a href='https://developer.kroger.com/'>Kroger</a>. 
 
-After you create an account, you can get a key and a secret:
+After you create an account, you can get a key and a secret. 
+
+Generally, you don't want to put your key and secret out there, so you can just set them in your Rprofile and then call them later:
 
 ```{r}
-kroger_k <- "productlocations-76042e6121dbd0d61b79e286ded0a1e14953080747806617438"
+#| eval: false
+Sys.setenv(kroger_k = "your_key")
+Sys.setenv(kroger_s = "your_secret")
+```
 
-kroger_s <- "zkTE4-wtxOubnTuKcbMZCEP_jR3CglIPLcWGP2hO"
+Then you can load them:
+
+```{r}
+kroger_k <- Sys.getenv("kroger_k")
+
+kroger_s <- Sys.getenv("kroger_s")
 ```
 
 The Kroger API sits right in the middle of the easy/complicated continuum. 
@@ -78,8 +88,7 @@ The Kroger API sits right in the middle of the easy/complicated continuum.
 ```{r}
 auth_request <- request("https://api.kroger.com/v1/connect/oauth2/token") %>%
   req_method("POST") %>%
-  req_headers("Content-Type" = "application/x-www-form-urlencoded", 
-              scope = "product.compact") %>%
+  req_headers("Content-Type" = "application/x-www-form-urlencoded") %>%
   req_body_form(grant_type = "client_credentials", 
                 scope = "product.compact") %>%
   req_auth_basic(username = kroger_k, password = kroger_s) %>%
@@ -105,19 +114,22 @@ location_id <- close_locations$data[[1]]$locationId
 
 
 ```{r}
+search_term <- "pumpkin%20cookies"
+
 product_link <- glue::glue(
-  "https://api.kroger.com/v1/products?filter.term=pumpkin%20cookies&filter.locationId={location_id}"
+  "https://api.kroger.com/v1/products?filter.term={search_term}&filter.locationId={location_id}"
 )
 
 product_request <- request(product_link) %>%
   req_headers("Cache-Control" = "no-cache", 
-              "Content-Type" = "application/json; charset=utf-8", 
-              scope = "product.compact") %>%
+              "Content-Type" = "application/json; charset=utf-8") %>%
   req_auth_bearer_token(access_token) %>% #req_dry_run(quiet = FALSE, redact_headers = FALSE)
-  req_perform(verbosity = 3)
+  req_perform()
 
 product_data <- resp_body_json(product_request)
 ```
 
 
 ## Private APIs
+
+As you navigate the web, you'll find a ton of interesting looking data in tables and other places. If you like to do just a little bit of exploring, you can typically find where that data lives!
