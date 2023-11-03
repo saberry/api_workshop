@@ -12,7 +12,6 @@ library(httr2)
 library(jsonlite)
 ```
 
-
 ## Free and Unkeyed APIs
 
 Let's start by finding some coordinates for South Bend:
@@ -34,8 +33,11 @@ lat <- lat_lon_return[[1]]$lat
 lon <- lat_lon_return[[1]]$lon
 ```
 
+Now that we have those coordinates, we can turn to <a href='https://open-meteo.com/'>Open-Meteo</a> to grab some weather data. Not only is it free and unkeyed, but it has very little in the way of **rate limits**. It is also a good example of building up the link.
 
-Let's start with an API from <a href='https://open-meteo.com/'>Open-Meteo</a>. Not only is it free and unkeyed, but it has very little in the way of **rate limits**. It is also a good example of building up the link.
+:::{.callout-important}
+Every API is different, so you will need to do a little reading to see how many requests you are allowed for any given time period -- some APIs are generous and others are not. 
+:::
 
 ```{r}
 link <- glue::glue(
@@ -105,6 +107,10 @@ kroger_k <- Sys.getenv("kroger_k")
 kroger_s <- Sys.getenv("kroger_s")
 ```
 
+:::{.callout-warning}
+I am not always very good with my keys, but you don't want to be like me. Keep your keys secure and don't post them on GitHub! Tossing a Google key out into the wild could be a disaster if you don't have it locked down. 
+:::
+
 The Kroger API sits right in the middle of the easy/complicated continuum. 
 
 ```{r}
@@ -133,8 +139,6 @@ close_locations <- resp_body_json(location_request)
 location_id <- close_locations$data[[1]]$locationId
 ```
 
-
-
 ```{r}
 search_term <- "pumpkin%20cookies"
 
@@ -151,7 +155,7 @@ product_request <- request(product_link) %>%
 product_data <- resp_body_json(product_request)
 ```
 
-
 ## Private APIs
 
 As you navigate the web, you'll find a ton of interesting looking data in tables and other places. If you like to do just a little bit of exploring, you can typically find where that data lives!
+
