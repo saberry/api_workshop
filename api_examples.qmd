@@ -159,3 +159,44 @@ product_data <- resp_body_json(product_request)
 
 As you navigate the web, you'll find a ton of interesting looking data in tables and other places. If you like to do just a little bit of exploring, you can typically find where that data lives!
 
+```{r}
+week_nums <- 1:18
+season <- 2021:2022
+
+week_season <- expand.grid(
+  week = week_nums, 
+  season = season
+)
+
+data_function <- function(week, season) {
+  link <- glue::glue(
+    "https://nextgenstats.nfl.com/api/statboard/receiving?season={season}&seasonType=REG&week={week}"
+  )
+  
+  output <- request(link) %>% 
+    req_headers("Host" = "nextgenstats.nfl.com", 
+                "Referer" = "https://nextgenstats.nfl.com/stats/receiving/2022/REG/1",
+                "User-Agent" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0") %>% 
+    req_perform() %>% 
+    resp_body_string() %>% 
+    fromJSON()
+  
+  week_stat <- output$stats
+  
+  week_stat <- week_stat[, -grep("player\\b", colnames(week_stat))]
+  
+  week_stat$season <- output$season
+  
+  week_stat$week <- output$week
+  
+  return(week_stat)
+}
+
+all_stats <- mapply(data_function, 
+                    week_season$week, 
+                    week_season$season, 
+                    SIMPLIFY = FALSE)
+
+all_stats <- do.call(rbind, all_stats)
+```
+
