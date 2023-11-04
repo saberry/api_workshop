@@ -8,6 +8,8 @@ The Application Programming Interface is one of the greatest things that you can
 We are going to be using just a few packages to make the API calls and get our data together:
 
 ```{r}
+#| warning: false
+#| message: false
 library(httr2)
 library(jsonlite)
 ```
@@ -17,6 +19,8 @@ library(jsonlite)
 Let's start by finding some coordinates for South Bend:
 
 ```{r}
+#| warning: false
+#| message: false
 town <- "South%20Bend,IN"
 
 link <- glue::glue(
@@ -40,6 +44,8 @@ Every API is different, so you will need to do a little reading to see how many 
 :::
 
 ```{r}
+#| warning: false
+#| message: false
 link <- glue::glue(
   "https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date=2012-01-01&end_date=2023-10-31&daily=temperature_2m_max,temperature_2m_min,temperature_2m_mean,snowfall_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FNew_York"
 )
@@ -51,6 +57,8 @@ weather_request <- request(link) %>%
 Now that we have made our request, we need to do just a little parsing to pull out data in.
 
 ```{r}
+#| warning: false
+#| message: false
 weather_content <- resp_body_string(weather_request)
 
 weather_data <- fromJSON(weather_content)
@@ -59,6 +67,8 @@ weather_data <- fromJSON(weather_content)
 Naturally, we are left with a list; parsing it won't be any trouble.
 
 ```{r}
+#| warning: false
+#| message: false
 sb_daily_weather <- as.data.frame(weather_data$daily)
 
 sb_daily_weather$time <- lubridate::ymd(sb_daily_weather$time)
@@ -67,6 +77,8 @@ sb_daily_weather$time <- lubridate::ymd(sb_daily_weather$time)
 This data will lend itself nicely to a time-based viz:
 
 ```{r}
+#| warning: false
+#| message: false
 library(plotly)
 
 plot_ly(sb_daily_weather, type = 'scatter', mode = 'lines') %>%
@@ -78,6 +90,8 @@ plot_ly(sb_daily_weather, type = 'scatter', mode = 'lines') %>%
 Just in the event that you were curious about snowfall:
 
 ```{r}
+#| warning: false
+#| message: false
 plot_ly(sb_daily_weather, type = 'scatter', mode = 'line') %>%
   add_trace(x = ~time, y = ~snowfall_sum, name = 'Snowfall') %>% 
   layout(xaxis = list(rangeslider = list(visible = TRUE)))
@@ -114,6 +128,7 @@ I am not always very good with my keys, but you don't want to be like me. Keep y
 The Kroger API sits right in the middle of the easy/complicated continuum. 
 
 ```{r}
+#| eval: false
 auth_request <- request("https://api.kroger.com/v1/connect/oauth2/token") %>%
   req_method("POST") %>%
   req_headers("Content-Type" = "application/x-www-form-urlencoded") %>%
@@ -126,6 +141,7 @@ access_token <- resp_body_json(auth_request)$access_token
 ```
 
 ```{r}
+#| eval: false
 location_link <- "https://api.kroger.com/v1/locations?filter.zipCode.near=46545"
 
 location_request <- request(location_link) %>%
@@ -140,6 +156,7 @@ location_id <- close_locations$data[[1]]$locationId
 ```
 
 ```{r}
+#| eval: false
 search_term <- "pumpkin%20cookies"
 
 product_link <- glue::glue(
@@ -160,6 +177,8 @@ product_data <- resp_body_json(product_request)
 As you navigate the web, you'll find a ton of interesting looking data in tables and other places. If you like to do just a little bit of exploring, you can typically find where that data lives!
 
 ```{r}
+#| warning: false
+#| message: false
 week_nums <- 1:18
 season <- 2021:2022
 
@@ -198,5 +217,72 @@ all_stats <- mapply(data_function,
                     SIMPLIFY = FALSE)
 
 all_stats <- do.call(rbind, all_stats)
+
+rmarkdown::paged_table(all_stats)
 ```
 
+### Python
+
+```{python}
+#| warning: false
+#| message: false
+import pandas as pd
+import requests
+
+url = "https://nextgenstats.nfl.com/api/statboard/receiving?season=2021&seasonType=REG"
+
+headers = {
+  "Host": "nextgenstats.nfl.com", 
+  "Referer": "https://nextgenstats.nfl.com/stats/receiving/2022/REG/1",
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0"
+  }
+
+nfl_request = requests.get(url, headers=headers)
+
+nfl_data = nfl_request.json()
+
+nfl_stats = nfl_data['stats']
+
+nfl_df = pd.DataFrame(nfl_stats)
+
+nfl_df
+```
+
+Now let's grab all of the individual weeks for 2021 and 2022:
+
+```{python}
+#| warning: false
+#| message: false
+import itertools
+
+week_nums = list(range(1, 18))
+
+season = list(range(2021, 2023))
+
+week_season = pd.DataFrame(
+  list(itertools.product(week_nums, season)), columns=['week', 'season']
+  )
+  
+def data_function(week, season):
+  url = f"https://nextgenstats.nfl.com/api/statboard/receiving?season={season}&seasonType=REG&week={week}"
+  
+  nfl_request = requests.get(url, headers=headers)
+  
+  nfl_data = nfl_request.json()
+  
+  nfl_stats = nfl_data['stats']
+  
+  nfl_df = pd.DataFrame(nfl_stats)
+  
+  nfl_df['season'] = nfl_data['season']
+  
+  nfl_df['week'] = nfl_data['week']
+  
+  return(nfl_df)
+
+all_stats = [data_function(x, y) for x,y in zip(week_season['week'], week_season['season'])]
+
+all_stats = pd.concat(all_stats)
+
+all_stats
+```
